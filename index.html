@@ -1,1 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Risk Management Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* =========================================
+           CSS VARIABLES & GLOBAL STYLES
+           ========================================= */
+        :root {
+            --bg-main: #F8F9FC;
+            --navbar-bg: #0D1B2A;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --card-bg: #ffffff;
+            --shadow: 0 4px 12px rgba(0,0,0,0.05);
+            --border-radius: 10px;
+            
+            /* Status Colors */
+            --color-very-low: #2E7D32; /* Dark Green */
+            --color-low: #81C784;      /* Light Green */
+            --color-low-med: #DCE775;  /* Yellow-Green */
+            --color-med: #FFD54F;      /* Yellow */
+            --color-high: #FFB74D;     /* Orange */
+            --color-extreme: #E53935;  /* Red */
+            
+            /* Matrix Badges */
+            --badge-inh-bg: #FCE4EC;
+            --badge-inh-text: #C2185B;
+            --badge-cur-bg: #E8F5E9;
+            --badge-cur-text: #2E7D32;
+            --badge-tar-bg: #F3E5F5;
+            --badge-tar-border: #8E24AA;
+            --badge-tar-text: #8E24AA;
+        }
 
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { background-color: var(--bg-main); color: var(--text-main); }
+
+        /* =========================================
+           NAVIGATION & LAYOUT
+           ========================================= */
+        header { background-color: var(--navbar-bg); color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.2rem; font-weight: 700; letter-spacing: 1px; }
+        
+        .tabs { display: flex; background: #1A2639; padding: 0 30px; }
+        .tab-btn { background: transparent; color: #a0aabf; border: none; padding: 15px 20px; font-size: 1rem; cursor: pointer; transition: 0.3s; font-weight: 500; border-bottom: 3px solid transparent; }
+        .tab-btn:hover { color: white; }
+        .tab-btn.active { color: white; border-bottom: 3px solid #FFB74D; }
+
+        .container { padding: 30px; max-width: 1600px; margin: 0 auto; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .card { background: var(--card-bg); border-radius: var(--border-radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 25px; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .card-title { font-size: 1.1rem; font-weight: 600; color: var(--navbar-bg); }
+
+        button.action-btn { background: var(--navbar-bg); color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 0.85rem; transition: 0.2s; }
+        button.action-btn:hover { background: #1A2639; }
+
+        /* =========================================
+           SUMMARY CARDS
+           ========================================= */
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .metric-card { background: var(--card-bg); padding: 20px; border-radius: var(--border-radius); box-shadow: var(--shadow); text-align: center; border-bottom: 4px solid #ccc; }
+        .metric-card h3 { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px; }
+        .metric-card .value { font-size: 1.8rem; font-weight: 700; }
+        
+        .metric-extreme { border-bottom-color: var(--color-extreme); }
+        .metric-high { border-bottom-color: var(--color-high); }
+        .metric-med { border-bottom-color: var(--color-med); }
+        .metric-low { border-bottom-color: var(--color-very-low); }
+        .metric-inh { border-bottom-color: #1976D2; }
+        .metric-net { border-bottom-color: #00897B; }
+
+        /* =========================================
+           TRIPLE HEAT MAP
+           ========================================= */
+        .heatmaps-wrapper { display: flex; gap: 20px; flex-wrap: wrap; }
+        .heatmap-card { flex: 1; min-width: 320px; display: flex; flex-direction: column; align-items: center; }
+        .matrix-title { font-weight: 600; margin-bottom: 15px; font-size: 1rem; }
+        
+        .matrix { display: grid; grid-template-columns: 30px repeat(5, 60px); grid-template-rows: repeat(5, 60px) 30px; gap: 2px; }
+        .y-axis-label { grid-row: 1 / 6; grid-column: 1; writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
+        .x-axis-label { grid-row: 6; grid-column: 2 / 7; text-align: center; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); line-height: 30px;}
+        
+        .matrix-cell { border: 1px solid rgba(0,0,0,0.1); display: flex; flex-wrap: wrap; align-content: flex-start; gap: 3px; padding: 4px; position: relative; }
+        
+        /* Cell Colors */
+        .cell-vlow { background-color: var(--color-very-low); }
+        .cell-low { background-color: var(--color-low); }
+        .cell-lowmed { background-color: var(--color-low-med); }
+        .cell-med { background-color: var(--color-med); }
+        .cell-high { background-color: var(--color-high); }
+        .cell-extreme { background-color: var(--color-extreme); }
+
+        /* Matrix Badges */
+        .risk-badge { width: 22px; height: 22px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 0.65rem; font-weight: 700; cursor: pointer; position: relative; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .badge-inherent { background: var(--badge-inh-bg); color: var(--badge-inh-text); border: 1px solid var(--badge-inh-text); }
+        .badge-current { background: var(--badge-cur-bg); color: var(--badge-cur-text); border: 1px solid var(--badge-cur-text); }
+        .badge-target { background: var(--badge-tar-bg); color: var(--badge-tar-text); border: 2px solid var(--badge-tar-border); transform: rotate(45deg); border-radius: 3px;}
+        .badge-target span { transform: rotate(-45deg); display: block; }
+
+        /* Tooltip */
+        .tooltip { visibility: hidden; width: 180px; background-color: #1A1F36; color: #fff; text-align: left; border-radius: 6px; padding: 8px 10px; position: absolute; z-index: 10; bottom: 125%; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 0.2s; font-size: 0.75rem; font-weight: 400; line-height: 1.4; box-shadow: 0 4px 8px rgba(0,0,0,0.3);}
+        .tooltip::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: #1A1F36 transparent transparent transparent; }
+        .risk-badge:hover .tooltip { visibility: visible; opacity: 1; }
+
+        .legend { display: flex; gap: 10px; margin-top: 15px; font-size: 0.75rem; justify-content: center; flex-wrap: wrap;}
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .legend-color { width: 12px; height: 12px; border-radius: 2px; }
+
+        /* =========================================
+           TABLES
+           ========================================= */
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; font-size: 0.85rem; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: #f1f3f8; font-weight: 600; color: var(--navbar-bg); white-space: nowrap; }
+        tr:hover { background-color: #fafbfc; }
+        
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; display: inline-block; text-align: center; min-width: 80px;}
+        .st-extreme { background: var(--color-extreme); color: white; }
+        .st-high { background: var(--color-high); color: white; }
+        .st-med { background: var(--color-med); color: #333; }
+        .st-low { background: var(--color-low); color: #2E7D32; }
+        .st-vlow { background: var(--color-very-low); color: white; }
+        
+        .indicator-safe { color: #2E7D32; font-weight: 600; }
+        .indicator-warn { color: #F57C00; font-weight: 600; }
+        .indicator-crit { color: #D32F2F; font-weight: 600; }
+
+        /* KRI / KCI Layout */
+        .panels-wrapper { display: flex; gap: 20px; flex-wrap: wrap; }
+        .panel { flex: 1; min-width: 400px; }
+        .panel-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: -10px; margin-bottom: 15px;}
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">MiningCorp ERM Dashboard</div>
+        <div>Admin Profile | YTD 2026</div>
+    </header>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Risk Dashboard</button>
+        <button class="tab-btn" onclick="switchTab('matrix')">🧮 Matrix Calculation</button>
+        <button class="tab-btn" onclick="switchTab('explanation')">📋 Risk Explanation</button>
+    </div>
+
+    <div class="container">
+        
+        <div id="dashboard" class="tab-content active">
+            
+            <div class="summary-grid">
+                <div class="metric-card metric-extreme">
+                    <h3>Extreme Risks</h3>
+                    <div class="value" id="count-extreme">0</div>
+                </div>
+                <div class="metric-card metric-high">
+                    <h3>High Risks</h3>
+                    <div class="value" id="count-high">0</div>
+                </div>
+                <div class="metric-card metric-med">
+                    <h3>Medium Risks</h3>
+                    <div class="value" id="count-med">0</div>
+                </div>
+                <div class="metric-card metric-low">
+                    <h3>Low Risks</h3>
+                    <div class="value" id="count-low">0</div>
+                </div>
+                <div class="metric-card metric-inh">
+                    <h3>Inherent Exposure</h3>
+                    <div class="value" id="val-inherent">$0.00M</div>
+                </div>
+                <div class="metric-card metric-net">
+                    <h3>Net Benefit Total</h3>
+                    <div class="value" id="val-net">$0.00M</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Risk Heat Maps — Triple Matrix View</div>
+                </div>
+                <div class="heatmaps-wrapper">
+                    <div class="heatmap-card">
+                        <div class="matrix-title">Before Controls (Inherent)</div>
+                        <div class="matrix" id="matrix-inherent"></div>
+                        <div class="legend">
+                            <div class="legend-item"><div class="legend-color" style="background: var(--badge-inh-bg); border: 1px solid var(--badge-inh-text); border-radius:50%;"></div> Inherent Risk</div>
+                        </div>
+                    </div>
+                    <div class="heatmap-card">
+                        <div class="matrix-title">After Controls (Current)</div>
+                        <div class="matrix" id="matrix-current"></div>
+                        <div class="legend">
+                            <div class="legend-item"><div class="legend-color" style="background: var(--badge-cur-bg); border: 1px solid var(--badge-cur-text); border-radius:50%;"></div> Current Risk</div>
+                        </div>
+                    </div>
+                    <div class="heatmap-card">
+                        <div class="matrix-title">Year-End Target</div>
+                        <div class="matrix" id="matrix-target"></div>
+                        <div class="legend">
+                            <div class="legend-item"><div class="legend-color" style="background: var(--badge-tar-bg); border: 1px solid var(--badge-tar-border); transform: rotate(45deg);"></div> Target Risk</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Risk Register — Monthly Data Entry</div>
+                    <button class="action-btn" onclick="addDummyRisk()">+ Add Risk</button>
+                </div>
+                <div class="table-responsive">
+                    <table id="risk-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Risk Description</th>
+                                <th>Category</th>
+                                <th>Inherent<br>(L×I)</th>
+                                <th>Cur<br>Likelihood</th>
+                                <th>Cur<br>Impact</th>
+                                <th>Current<br>Level</th>
+                                <th>Tar<br>L</th>
+                                <th>Tar<br>I</th>
+                                <th>Target<br>Level</th>
+                                <th>Inherent<br>Exposure ($M)</th>
+                                <th>Residual<br>Exposure ($M)</th>
+                                <th>Mitigation<br>Cost ($M)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panels-wrapper">
+                <div class="card panel">
+                    <div class="card-header">
+                        <div class="card-title">⚠️ Key Risk Indicators (KRI)</div>
+                        <button class="action-btn" onclick="addDummyKRI()">+ Add KRI</button>
+                    </div>
+                    <div class="panel-subtitle">Early-warning thresholds — updated monthly</div>
+                    <div class="table-responsive">
+                        <table id="kri-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Description</th>
+                                    <th>Safe</th>
+                                    <th>Warning</th>
+                                    <th>Critical</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card panel">
+                    <div class="card-header">
+                        <div class="card-title">✅ Key Control Indicators (KCI)</div>
+                        <button class="action-btn" onclick="addDummyKCI()">+ Add KCI</button>
+                    </div>
+                    <div class="panel-subtitle">Control effectiveness — monthly review</div>
+                    <div class="table-responsive">
+                        <table id="kci-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Description</th>
+                                    <th>Effective</th>
+                                    <th>Needs Work</th>
+                                    <th>Ineffective</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="matrix" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Risk Matrix Calculation & Formulas</div>
+                </div>
+                <p><strong>Core Formula:</strong> Risk Score = Likelihood (1-5) × Impact (1-5)</p>
+                <p><strong>Net Benefit Formula:</strong> Net Benefit = Inherent Exposure - Residual Exposure + Mitigation Cost</p>
+                <br>
+                <div style="max-width: 500px;">
+                    <div class="matrix" id="calc-matrix" style="grid-template-columns: 40px repeat(5, 80px); grid-template-rows: repeat(5, 60px) 40px;">
+                        </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="explanation" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Risk Level Explanations</div>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Score Range</th>
+                                <th>Level</th>
+                                <th>Color</th>
+                                <th>Action Required</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>20 - 25</td><td><span class="status-badge st-extreme">Extreme</span></td><td>Red</td><td>Immediate action required by Executive Management. Stop work if necessary.</td></tr>
+                            <tr><td>15 - 16</td><td><span class="status-badge st-high">High</span></td><td>Orange</td><td>Senior Management attention needed. Urgent mitigation plan required.</td></tr>
+                            <tr><td>10 - 12</td><td><span class="status-badge st-med">Medium</span></td><td>Yellow</td><td>Management responsibility must be specified. Control monitoring required.</td></tr>
+                            <tr><td>4 - 9</td><td><span class="status-badge st-low">Low</span></td><td>Light/Yel Green</td><td>Manage by routine procedures. Maintain existing controls.</td></tr>
+                            <tr><td>1 - 3</td><td><span class="status-badge st-vlow">Very Low</span></td><td>Dark Green</td><td>Acceptable risk. No additional controls needed.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <br>
+                <div class="panels-wrapper">
+                    <div class="panel">
+                        <div class="card-header"><div class="card-title">Likelihood Scale (1-5)</div></div>
+                        <table>
+                            <tr><th>5</th><td>Almost Certain (>90% probability)</td></tr>
+                            <tr><th>4</th><td>Very Likely (60% - 90%)</td></tr>
+                            <tr><th>3</th><td>Possible (30% - 60%)</td></tr>
+                            <tr><th>2</th><td>Unlikely (10% - 30%)</td></tr>
+                            <tr><th>1</th><td>Rare (<10% probability)</td></tr>
+                        </table>
+                    </div>
+                    <div class="panel">
+                        <div class="card-header"><div class="card-title">Impact Scale (1-5)</div></div>
+                        <table>
+                            <tr><th>5</th><td>Very High (Fatality, >$10M loss)</td></tr>
+                            <tr><th>4</th><td>High (Severe injury, $5M-$10M loss)</td></tr>
+                            <tr><th>3</th><td>Moderate (Medical treatment, $1M-$5M loss)</td></tr>
+                            <tr><th>2</th><td>Low (First aid, $100K-$1M loss)</td></tr>
+                            <tr><th>1</th><td>Very Low (No injury, <$100K loss)</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- DATA SOURCES ---
+        // Dummy Data: 19 Risks in Gold Mining Context
+        let risks = [
+            { id: 1, desc: "Pit Wall Failure", category: "Operational", iL: 4, iI: 5, cL: 3, cI: 4, tL: 2, tI: 4, iExp: 25.0, rExp: 8.5, mCost: 2.0 },
+            { id: 2, desc: "Cyanide Spill to Environment", category: "Environmental", iL: 4, iI: 5, cL: 2, cI: 5, tL: 1, tI: 5, iExp: 50.0, rExp: 10.0, mCost: 5.5 },
+            { id: 3, desc: "Gold Price Drop < $1800/oz", category: "Financial", iL: 5, iI: 4, cL: 5, cI: 3, tL: 5, tI: 2, iExp: 30.0, rExp: 15.0, mCost: 1.0 },
+            { id: 4, desc: "Community Protests/Blockade", category: "Social", iL: 4, iI: 4, cL: 3, cI: 3, tL: 2, tI: 2, iExp: 10.0, rExp: 4.0, mCost: 0.8 },
+            { id: 5, desc: "Illegal Artisanal Mining", category: "Security", iL: 5, iI: 3, cL: 4, cI: 3, tL: 3, tI: 2, iExp: 5.0, rExp: 2.5, mCost: 0.5 },
+            { id: 6, desc: "Mill SAG Breakdown", category: "Operational", iL: 3, iI: 4, cL: 2, cI: 3, tL: 2, tI: 2, iExp: 12.0, rExp: 4.0, mCost: 1.2 },
+            { id: 7, desc: "Diesel Supply Disruption", category: "Supply Chain", iL: 3, iI: 4, cL: 2, cI: 4, tL: 1, tI: 4, iExp: 8.0, rExp: 5.0, mCost: 0.3 },
+            { id: 8, desc: "Tailings Dam Seepage", category: "Environmental", iL: 3, iI: 5, cL: 2, cI: 4, tL: 1, tI: 4, iExp: 40.0, rExp: 15.0, mCost: 8.0 },
+            { id: 9, desc: "Heavy Rainfall/Flooding Pit", category: "Operational", iL: 4, iI: 3, cL: 3, cI: 2, tL: 2, tI: 2, iExp: 6.0, rExp: 2.0, mCost: 1.5 },
+            { id: 10, desc: "Regulatory License Revocation", category: "Legal/Compliance", iL: 2, iI: 5, cL: 1, cI: 5, tL: 1, tI: 5, iExp: 100.0, rExp: 100.0, mCost: 0.5 },
+            { id: 11, desc: "Underground Ventilation Failure", category: "Health & Safety", iL: 3, iI: 5, cL: 2, cI: 4, tL: 1, tI: 4, iExp: 15.0, rExp: 5.0, mCost: 2.5 },
+            { id: 12, desc: "Equipment Tire Shortage", category: "Supply Chain", iL: 4, iI: 2, cL: 2, cI: 2, tL: 2, tI: 1, iExp: 2.0, rExp: 0.5, mCost: 0.2 },
+            { id: 13, desc: "Labor Union Strike", category: "HR", iL: 3, iI: 4, cL: 2, cI: 3, tL: 2, tI: 2, iExp: 8.0, rExp: 3.0, mCost: 0.1 },
+            { id: 14, desc: "Cyber Attack on SCADA", category: "IT", iL: 3, iI: 4, cL: 2, cI: 3, tL: 1, tI: 3, iExp: 10.0, rExp: 2.5, mCost: 0.9 },
+            { id: 15, desc: "Water Scarcity for Process", category: "Environmental", iL: 3, iI: 3, cL: 2, cI: 2, tL: 1, tI: 2, iExp: 4.0, rExp: 1.0, mCost: 0.6 },
+            { id: 16, desc: "Explosives Mishandling", category: "Health & Safety", iL: 2, iI: 5, cL: 1, cI: 5, tL: 1, tI: 5, iExp: 20.0, rExp: 5.0, mCost: 1.0 },
+            { id: 17, desc: "Currency Exchange Fluctuation", category: "Financial", iL: 4, iI: 3, cL: 3, cI: 3, tL: 3, tI: 2, iExp: 7.0, rExp: 4.0, mCost: 0.2 },
+            { id: 18, desc: "Key Personnel Turnover", category: "HR", iL: 3, iI: 2, cL: 2, cI: 2, tL: 2, tI: 1, iExp: 1.5, rExp: 0.5, mCost: 0.1 },
+            { id: 19, desc: "Epidemic at Camp", category: "Health & Safety", iL: 3, iI: 4, cL: 2, cI: 3, tL: 1, tI: 3, iExp: 15.0, rExp: 4.0, mCost: 2.0 }
+        ];
+
+        let kris = [
+            { id: "K1", desc: "Gold price vs AISC breakeven ($/oz)", safe: "> 300 margin", warn: "100-300 margin", crit: "< 100 margin", current: "Safe" },
+            { id: "K2", desc: "Pit slope movement (mm/day)", safe: "< 5 mm", warn: "5-15 mm", crit: "> 15 mm", current: "Warning" },
+            { id: "K3", desc: "Process Recovery Rate (%)", safe: "> 92%", warn: "88% - 92%", crit: "< 88%", current: "Safe" },
+            { id: "K4", desc: "Community complaints / month", safe: "< 5", warn: "5 - 15", crit: "> 15", current: "Safe" },
+            { id: "K5", desc: "WAD Cyanide at discharge (ppm)", safe: "< 0.1", warn: "0.1 - 0.4", crit: "> 0.4", current: "Critical" }
+        ];
+
+        let kcis = [
+            { id: "C1", desc: "Daily Geotech Radar Monitoring", eff: "100% uptime", need: "90-99%", ineff: "< 90%", current: "Effective" },
+            { id: "C2", desc: "Tailings Dam Piezometer readings", eff: "Weekly", need: "Bi-weekly", ineff: "Monthly+", current: "Effective" },
+            { id: "C3", desc: "Gold Hedging Ratio Active", eff: "> 30%", need: "15% - 30%", ineff: "< 15%", current: "Needs Work" },
+            { id: "C4", desc: "Critical Spare Parts Inventory", eff: "> 95%", need: "80-95%", ineff: "< 80%", current: "Effective" },
+            { id: "C5", desc: "Cyanide Detox Plant Uptime", eff: "> 98%", need: "90-98%", ineff: "< 90%", current: "Ineffective" }
+        ];
+
+        // --- HELPER FUNCTIONS ---
+        function getScoreLevelClass(score) {
+            if (score >= 20) return "cell-extreme";
+            if (score >= 15) return "cell-high";
+            if (score >= 10) return "cell-med";
+            if (score >= 7) return "cell-lowmed";
+            if (score >= 4) return "cell-low";
+            return "cell-vlow";
+        }
+
+        function getBadgeClass(score) {
+            if (score >= 20) return "st-extreme";
+            if (score >= 15) return "st-high";
+            if (score >= 10) return "st-med";
+            if (score >= 4) return "st-low";
+            return "st-vlow";
+        }
+
+        function getLevelText(score) {
+            if (score >= 20) return "Extreme";
+            if (score >= 15) return "High";
+            if (score >= 10) return "Medium";
+            if (score >= 4) return "Low";
+            return "Very Low";
+        }
+
+        // --- TAB SWITCHING ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        // --- RENDER FUNCTIONS ---
+        function renderDashboard() {
+            calculateMetrics();
+            renderRiskTable();
+            renderHeatmaps();
+            renderKRITable();
+            renderKCITable();
+        }
+
+        function calculateMetrics() {
+            let ext = 0, high = 0, med = 0, low = 0;
+            let totInhExp = 0, totResExp = 0, totMitCost = 0;
+
+            risks.forEach(r => {
+                let currentScore = r.cL * r.cI;
+                if (currentScore >= 20) ext++;
+                else if (currentScore >= 15) high++;
+                else if (currentScore >= 10) med++;
+                else low++;
+
+                totInhExp += r.iExp;
+                totResExp += r.rExp;
+                totMitCost += r.mCost;
+            });
+
+            document.getElementById('count-extreme').innerText = ext;
+            document.getElementById('count-high').innerText = high;
+            document.getElementById('count-med').innerText = med;
+            document.getElementById('count-low').innerText = low;
+            
+            document.getElementById('val-inherent').innerText = `$${totInhExp.toFixed(2)}M`;
+            // Net Benefit Total Formula per prompt: Inh Exp - Res Exp + Mit Cost
+            let netBen = totInhExp - totResExp + totMitCost;
+            document.getElementById('val-net').innerText = `$${netBen.toFixed(2)}M`;
+        }
+
+        function generateMatrixGrid(containerId, type) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '<div class="y-axis-label">Likelihood (1-5)</div>';
+            
+            // Generate 5x5 grid (Y goes 5 to 1 downwards, X goes 1 to 5 rightwards)
+            for (let y = 5; y >= 1; y--) {
+                for (let x = 1; x <= 5; x++) {
+                    let score = y * x;
+                    let colorClass = getScoreLevelClass(score);
+                    
+                    let cell = document.createElement('div');
+                    cell.className = `matrix-cell ${colorClass}`;
+                    cell.id = `${type}-cell-${y}-${x}`;
+                    
+                    // Populate badges for this cell based on type
+                    risks.forEach(r => {
+                        let renderBadge = false;
+                        let rL, rI, bClass, bContent;
+                        
+                        if (type === 'inh' && r.iL === y && r.iI === x) {
+                            renderBadge = true; rL=r.iL; rI=r.iI; bClass = 'badge-inherent'; bContent = r.id;
+                        } else if (type === 'cur' && r.cL === y && r.cI === x) {
+                            renderBadge = true; rL=r.cL; rI=r.cI; bClass = 'badge-current'; bContent = r.id;
+                        } else if (type === 'tar' && r.tL === y && r.tI === x) {
+                            renderBadge = true; rL=r.tL; rI=r.tI; bClass = 'badge-target'; bContent = `<span>${r.id}</span>`;
+                        }
+
+                        if (renderBadge) {
+                            let badge = document.createElement('div');
+                            badge.className = `risk-badge ${bClass}`;
+                            badge.innerHTML = bContent;
+                            
+                            // Tooltip
+                            let tooltip = document.createElement('div');
+                            tooltip.className = 'tooltip';
+                            tooltip.innerHTML = `<strong>R${r.id}:</strong> ${r.desc}<br>Score: ${rL * rI} (${getLevelText(rL*rI)})`;
+                            badge.appendChild(tooltip);
+                            
+                            cell.appendChild(badge);
+                        }
+                    });
+                    container.appendChild(cell);
+                }
+            }
+            container.innerHTML += '<div class="x-axis-label">Impact (1-5)</div>';
+        }
+
+        function renderHeatmaps() {
+            generateMatrixGrid('matrix-inherent', 'inh');
+            generateMatrixGrid('matrix-current', 'cur');
+            generateMatrixGrid('matrix-target', 'tar');
+        }
+
+        function renderRiskTable() {
+            const tbody = document.querySelector('#risk-table tbody');
+            tbody.innerHTML = '';
+            risks.forEach(r => {
+                let inhScore = r.iL * r.iI;
+                let curScore = r.cL * r.cI;
+                let tarScore = r.tL * r.tI;
+                
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>R${r.id}</td>
+                    <td><strong>${r.desc}</strong></td>
+                    <td>${r.category}</td>
+                    <td>${inhScore}</td>
+                    <td>${r.cL}</td>
+                    <td>${r.cI}</td>
+                    <td><span class="status-badge ${getBadgeClass(curScore)}">${getLevelText(curScore)}</span></td>
+                    <td>${r.tL}</td>
+                    <td>${r.tI}</td>
+                    <td><span class="status-badge ${getBadgeClass(tarScore)}">${getLevelText(tarScore)}</span></td>
+                    <td>$${r.iExp.toFixed(2)}</td>
+                    <td>$${r.rExp.toFixed(2)}</td>
+                    <td>$${r.mCost.toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderKRITable() {
+            const tbody = document.querySelector('#kri-table tbody');
+            tbody.innerHTML = '';
+            kris.forEach(k => {
+                let statusClass = k.current === 'Safe' ? 'indicator-safe' : (k.current === 'Warning' ? 'indicator-warn' : 'indicator-crit');
+                let tr = document.createElement('tr');
+                tr.innerHTML = `<td>${k.id}</td><td>${k.desc}</td><td>${k.safe}</td><td>${k.warn}</td><td>${k.crit}</td><td class="${statusClass}">${k.current}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderKCITable() {
+            const tbody = document.querySelector('#kci-table tbody');
+            tbody.innerHTML = '';
+            kcis.forEach(k => {
+                let statusClass = k.current === 'Effective' ? 'indicator-safe' : (k.current === 'Needs Work' ? 'indicator-warn' : 'indicator-crit');
+                let tr = document.createElement('tr');
+                tr.innerHTML = `<td>${k.id}</td><td>${k.desc}</td><td>${k.eff}</td><td>${k.need}</td><td>${k.ineff}</td><td class="${statusClass}">${k.current}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function buildCalcMatrix() {
+            const container = document.getElementById('calc-matrix');
+            container.innerHTML = '<div class="y-axis-label">Likelihood (1-5)</div>';
+            for (let y = 5; y >= 1; y--) {
+                for (let x = 1; x <= 5; x++) {
+                    let score = y * x;
+                    container.innerHTML += `<div class="matrix-cell ${getScoreLevelClass(score)}" style="justify-content:center; align-items:center; font-weight:bold; color:rgba(0,0,0,0.6);">${score}</div>`;
+                }
+            }
+            container.innerHTML += '<div class="x-axis-label">Impact (1-5)</div>';
+        }
+
+        // --- INTERACTIVE ADD FUNCTIONS ---
+        function addDummyRisk() {
+            let newId = risks.length + 1;
+            risks.push({
+                id: newId, desc: "New Custom Risk " + newId, category: "Operational",
+                iL: 4, iI: 4, cL: 3, cI: 3, tL: 2, tI: 3,
+                iExp: 10.0, rExp: 5.0, mCost: 1.0
+            });
+            renderDashboard();
+            alert("New dummy risk added to the bottom of the Risk Register!");
+        }
+
+        function addDummyKRI() {
+            let newNum = kris.length + 1;
+            kris.push({ id: "K"+newNum, desc: "New Indicator " + newNum, safe: "High", warn: "Med", crit: "Low", current: "Safe" });
+            renderKRITable();
+        }
+
+        function addDummyKCI() {
+            let newNum = kcis.length + 1;
+            kcis.push({ id: "C"+newNum, desc: "New Control " + newNum, eff: "Yes", need: "Partial", ineff: "No", current: "Needs Work" });
+            renderKCITable();
+        }
+
+        // --- INITIALIZE ---
+        window.onload = () => {
+            renderDashboard();
+            buildCalcMatrix();
+        };
+
+    </script>
+</body>
+</html>
